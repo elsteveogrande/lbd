@@ -1,0 +1,69 @@
+
+LBD
+
+(Logical Block Device)
+
+These devices act like physical ones but contain multiple layers, each of
+which can be readable or writable, and can capture separate data sets,
+representing the states of the device over multiple points in time.
+
+For example consider the following:
+
+layer 2   [writable sparse "change" file]
+layer 1   [readonly base flat file]
+layer 0   [readonly "null" layer]
+
+Let layer 1 be a readonly, static snapshot taken at some point in time.
+(This can be a physical device like /dev/sdb2, or a designated file that
+contains a byte-for-byte replica of a device.)
+
+Layer 2 is a writable file that contains changes made to the volume.
+Initially, layer 2 is empty; any reads from the device return data from
+layer 1.  As writes are done to the device, the new blocks are stored in
+this change file; subsequent reads at these blocks' addresses will return
+the modified data.
+
+So this model can represent a possibly very large virtual device backed
+by static content (perhaps an "image" of a filesystem containing files for
+a large database) that is modifiable locally.  More usefully, this backing
+image can be exported to multiple machines, each with their own local
+changefiles, so that no hosts share each others' changes.  More usefully
+yet, these instances can be built very quickly so a replica of a filesystem
+(database instance) can be stood up in a very short time.
+
+Layer 0 is a magic base layer that exists in all virtual block devices;
+it does not accept writes; any read will return null-bytes.
+
+
+Limits
+
+The virtual device has a Java long size, so it can theoretically hold
+(2^63) bytes of data.  It supports transfers of appx. 2GB (4194303 blocks).
+Individual layer types may have their own limits however.  The sparse
+change file (ExpandableFile) supports (2^45) bytes of data (32TB).
+
+
+Change file format
+
+* file divided up into 512-byte-aligned 512-byte-long blocks
+* each block is a table (containing 64 long entries) or a raw device block
+* the location of a virtual sector is mapped to a location in this file
+  using a hierarchy of tables; one would have to traverse 6 tables to get
+  the address of a single sector
+* block 0 is the "root" table
+* split the 45-bit address into a 36-bit sector number and 9-bit offset;
+  split the 36-bit sector number into 6 values of 0 to 63 and use them
+  as indexes into tables, starting at table 0.
+
+
+KNOWN ISSUES:
+
+- need to implement nbd client support
+- on disconnect, a phantom new connection happens
+- would like a command that adds a new expandable file layer on top
+  and makes the one formerly on top read-only
+- needs to use "getopts" or similar instead of hardcoded main class!
+- much CPU time spent in Table.<init>; cache blocknumber -> offset in
+  second-chance FIFO (the blocknumber -> offset mappings, once assigned,
+  never change)
+- map large runs of blocks, less granularly, for performance
