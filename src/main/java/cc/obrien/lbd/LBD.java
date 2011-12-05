@@ -236,11 +236,13 @@ public final class LBD
 		ServerSocket serverSocket = new ServerSocket();
 		serverSocket.bind(serverBindOn);
 		Server server = new NBDServer(device, serverSocket);
-
+		device.setServer(server);
+		
 		// management server daemon
 		ServerSocket managerSocket = new ServerSocket();
 		managerSocket.bind(managerBindOn);
 		Manager manager = new Manager(device, managerSocket);
+		device.setManager(manager);
 
 		for(LayerArg arg : layerArgs)
 		{
