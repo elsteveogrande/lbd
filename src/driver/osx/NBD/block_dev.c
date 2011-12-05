@@ -197,6 +197,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		result = sock_socket(PF_INET, SOCK_STREAM, IPPROTO_TCP, connect_call_complete, (void*) (long) minor_number, &(dev->socket));
 		if(result)
 		{
+			printf("nbd: ioctl_connect: during sock_socket: %d\n", result);
 			ret = result;
 			break;
 		}
@@ -205,11 +206,13 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		result = sock_connect(dev->socket, server_sockaddr, MSG_DONTWAIT);  // MSG_DONTWAIT -> don't block
 		if(result != EINPROGRESS)
 		{
+			printf("nbd: ioctl_connect: during sock_connect: %d\n", result);
 			sock_close(dev->socket);
 			dev->socket = 0;
 			ret = result;
 			break;
 		}
+		
 		break;
 
 	case IOCTL_CONNECTIVITY_CHECK:  // uint32_t: connected boolean

@@ -2,7 +2,6 @@
 #define _NBD_IOCTL_H
 
 
-#include <sys/kpi_socket.h>
 #include <sys/ioccom.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -10,14 +9,17 @@
 
 typedef struct ioctl_connect_device
 {
-	// device
-	int minor_number;
-
 	// true size of the below "addr" member
 	int addr_size;
 
-	// size of this will vary, see addr_size for true size; can be sockaddr_in, sockaddr_in6, etc.
-	struct sockaddr server;
+	// size of a sockddr will vary, see addr_size for true size; can be sockaddr_in, sockaddr_in6, etc.
+	// using a union of sockaddr with large byte array, to ensure consistent sizing
+	// (the kernel-mode compile versus userland compile had 'sockaddr_storage' compile to different sizes...)
+	union
+	{
+		struct sockaddr storage;
+		char bytes[252];   // try to make this struct an even 256 bytes
+	} server;
 } ioctl_connect_device_t;
 
 

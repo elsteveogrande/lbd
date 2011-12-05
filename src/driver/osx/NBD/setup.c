@@ -7,16 +7,18 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include "nbd_ioctl.h"
 
 
 int main(int argc, char *argv[])
 {
 	int fd;
 	int server_addr_size;
-	struct sockaddr_storage server_addr;
+	struct sockaddr *server_addr;
 	struct addrinfo hints;
 	struct addrinfo *server_addr_info;
 	int result;
+	ioctl_connect_device_t request;
 	
 	// open device for ioctl
 	fd = open(argv[1], O_RDWR);
@@ -36,16 +38,21 @@ int main(int argc, char *argv[])
 		perror("error on lookup");
 		return 2;
 	}
-	
-	server_addr_size = server_addr_info->ai_addrlen;
-	memset(&server_addr, 0, sizeof(struct sockaddr_storage));
-	memcpy(&server_addr, server_addr_info->ai_addr, server_addr_size);
 
-	printf("%d\n", server_addr_size); 
-	for(int i=0; i<server_addr_size; i++)
-		printf("%02x ", ((char *)(&(server_addr)))[i] & 0xff);
-	printf("\n");
-	
+	// build request and send it
+	memset(&request, 0, sizeof(ioctl_connect_device_t));
+	request.addr_size = server_addr_info->ai_addrlen;
+	server_addr = server_addr_info->ai_addr;
+	memcpy(&(request.server), server_addr, server_addr_size);
+
+	fprintf(stderr, "sending ioctl %08lx\n", IOCTL_CONNECT_DEVICE);
+	result = ioctl(fd, IOCTL_CONNECT_DEVICE, &request);
+	if(result)
+	{
+		perror("ioctl");
+		return 3;
+	}
+
 	close(fd);
 	
 	return 0;
