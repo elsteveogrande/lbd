@@ -83,6 +83,9 @@ void device_init(int minor)
 
 void device_cleanup(int minor)
 {
+	if(devices[minor].socket)
+		sock_close(devices[minor].socket);
+	
 	if(devices[minor].block_device_node)
 		devfs_remove(devices[minor].block_device_node);
 
