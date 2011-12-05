@@ -20,7 +20,7 @@
 typedef struct device
 {
 	int writable:1;						// can be written?  Or is it readonly (if 0)?
-	int connect_completed:1;			// completed the sock_connect call, with our without errors
+	int connect_call_completed:1;		// completed the sock_connect call, with our without errors
 	int minor:8;						// minor device number
 	int client_block_size;				// block size requested by the process who opened this; by default, BLOCK_SIZE (in initialization, or on device close)
 	long long size;						// determined size of the nbd device, in bytes

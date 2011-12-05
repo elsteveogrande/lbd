@@ -137,8 +137,8 @@ static void connect_call_complete(socket_t socket, void *cookie, int waitf)
 	minor_number = (int) (long) cookie;
 	if(devices[minor_number].socket == socket)
 	{
-		printf("nbd: async socket: connected for device %d\n", minor_number);
-		devices[minor_number].connect_completed = 1;
+		printf("nbd: async socket: connect call completed for device %d\n", minor_number);
+		devices[minor_number].connect_call_completed = 1;
 	}
 	else
 	{
@@ -155,6 +155,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	ioctl_connect_device_t *ioctl_connect;
 	struct sockaddr * server_sockaddr;
 	socket_t socket;
+	int i;
 	
 	minor_number = minor(bsd_dev);
 	
@@ -174,7 +175,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		break;
 	
 	case DKIOCGETBLOCKCOUNT:  // uint64_t: block count
-		if(! (dev->connect_completed && dev->socket) )
+		if(! (dev->connect_call_completed && dev->socket) )
 		{
 			ret = ENXIO;
 			break;
@@ -185,6 +186,10 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	case IOCTL_CONNECT_DEVICE:
 		ioctl_connect = (ioctl_connect_device_t *) data;
 		server_sockaddr = (struct sockaddr *) &(ioctl_connect->server);
+		unsigned char *p = (unsigned char *) server_sockaddr;
+		printf("%p: ", server_sockaddr);
+		for(i=0; i<16; i++)
+			printf("%02x ", (p[i] & 0xff));
 
 		// already connected?
 		if(dev->socket)
@@ -194,7 +199,8 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		}
 
 		// new socket
-		result = sock_socket(PF_INET, SOCK_STREAM, IPPROTO_TCP, connect_call_complete, (void*) (long) minor_number, &(dev->socket));
+		printf("fam=%d type=%d proto=%d\n", ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol);
+		result = sock_socket(ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol, connect_call_complete, (void*) (long) minor_number, &(dev->socket));
 		if(result)
 		{
 			printf("nbd: ioctl_connect: during sock_socket: %d\n", result);
@@ -220,6 +226,12 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		if(! socket)
 		{
 			ret = ENXIO;
+			break;
+		}
+		
+		if(! dev->connect_call_completed)
+		{
+			ret = EBUSY;
 			break;
 		}
 		

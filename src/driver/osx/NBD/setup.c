@@ -43,7 +43,10 @@ int main(int argc, char *argv[])
 	memset(&request, 0, sizeof(ioctl_connect_device_t));
 	request.addr_size = server_addr_info->ai_addrlen;
 	server_addr = server_addr_info->ai_addr;
-	memcpy(&(request.server), server_addr, server_addr_size);
+	memcpy(&(request.server), server_addr, request.addr_size);
+	request.addr_family = server_addr_info->ai_family;
+	request.addr_socktype = server_addr_info->ai_socktype;
+	request.addr_protocol = server_addr_info->ai_protocol;
 
 	fprintf(stderr, "sending ioctl %08lx\n", IOCTL_CONNECT_DEVICE);
 	result = ioctl(fd, IOCTL_CONNECT_DEVICE, &request);

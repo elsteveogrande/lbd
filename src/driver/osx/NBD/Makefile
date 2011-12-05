@@ -22,11 +22,12 @@ kext: nbd
 
 clean:
 	rm -f nbd *.o
+	rm -rf setup.dSYM
 	sync  # in case of crash during unload
 	echo `sudo kextunload -q NBD.kext 2>&1`
 	sudo rm -rf NBD.kext
 
-test: clean kext
+test: clean kext setup
 	sync  # in case of crash during load
 	sleep .5
 	sync
