@@ -101,7 +101,7 @@ void device_teardown(int minor)
 	
 	if(devices[minor].socket)
 	{
-		sock_close(devices[minor].socket);
+		//sock_close(devices[minor].socket);
 	}
 	
 	device_wipe(minor);
@@ -118,24 +118,4 @@ void device_wipe(int minor)
 	devices[minor].opened_by = 0;
 	devices[minor].client_block_size = BLOCK_SIZE;
 	memset( &(devices[minor].server), 0, sizeof(struct sockaddr_storage) );
-}
-
-
-static int device_socket_write(int minor_number, size_t size, void *buffer)
-{
-	struct iovec msg_data;
-	struct msghdr msg;
-	int result;
-	size_t written;
-	
-	msg_data.iov_base = buffer;
-	msg_data.iov_len = size;
-	msg.msg_name = 0;
-	msg.msg_namelen = 0;
-	msg.msg_iov = &msg_data;
-	msg.msg_iovlen = 1;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-	result = sock_send(devices[minor_number].socket, &msg, 0, &written);
-	return result;
 }
