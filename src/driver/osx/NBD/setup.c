@@ -7,11 +7,13 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
 #include "nbd_ioctl.h"
-
 
 int main(int argc, char *argv[])
 {
+	int ret;
 	int fd;
 	int server_addr_size;
 	struct sockaddr *server_addr;
@@ -19,13 +21,21 @@ int main(int argc, char *argv[])
 	struct addrinfo *server_addr_info;
 	int result;
 	ioctl_connect_device_t request;
+	uint32_t conn_status;
+	int success;
+	struct timeval t0;
+	struct timeval t1;
+	struct timespec sleep_time;
+	
+	ret = 0;
 	
 	// open device for ioctl
 	fd = open(argv[1], O_RDWR);
 	if(fd == -1)
 	{
 		perror("could not open");
-		return 1;
+		ret = 1;
+		goto out;
 	}
 	
 	// resolve host and port for sockaddr
@@ -35,8 +45,9 @@ int main(int argc, char *argv[])
 	result = getaddrinfo(argv[2], argv[3], &hints, &server_addr_info);
 	if(result)
 	{
-		perror("error on lookup");
-		return 2;
+		fprintf(stderr, "looking up address: %s\n", gai_strerror(result));
+		ret = 2;
+		goto out_close;
 	}
 
 	// build request and send it
@@ -48,17 +59,56 @@ int main(int argc, char *argv[])
 	request.addr_socktype = server_addr_info->ai_socktype;
 	request.addr_protocol = server_addr_info->ai_protocol;
 
-	fprintf(stderr, "sending ioctl %08lx\n", IOCTL_CONNECT_DEVICE);
+	fprintf(stderr, "sending ioctl IOCTL_CONNECT_DEVICE %08lx\n", IOCTL_CONNECT_DEVICE);
 	result = ioctl(fd, IOCTL_CONNECT_DEVICE, &request);
 	if(result)
 	{
 		perror("ioctl");
-		return 3;
+		ret = 3;
+		goto out_close;
 	}
 
+	freeaddrinfo(server_addr_info);
+	
+	fprintf(stderr, "sending ioctl IOCTL_CONNECTIVITY_CHECK %08lx\n", IOCTL_CONNECTIVITY_CHECK);
+	
+	sleep_time.tv_sec = 0;
+	sleep_time.tv_nsec = 1000000000 / 100;
+	
+	success = 0;
+	gettimeofday(&t0, NULL);
+	while(! success)
+	{
+		result = ioctl(fd, IOCTL_CONNECTIVITY_CHECK, &conn_status);
+		if(result)
+		{
+			perror("ioctl");
+			ret = 4;
+			goto out_close;
+		}
+
+		if(conn_status)
+		{
+			success = 1;
+			break;
+		}
+
+		gettimeofday(&t1, NULL);
+		if( ( ((t1.tv_sec*1000000) + t1.tv_usec) - ((t0.tv_sec*1000000) + t0.tv_usec) ) > 5000000 )
+		{
+			break;
+		}
+
+		nanosleep(&sleep_time, NULL);
+	}
+
+	printf("connection status %d\n", success);
+
+out_close:
 	close(fd);
 	
-	return 0;
+out:
+	return ret;
 }
 
 

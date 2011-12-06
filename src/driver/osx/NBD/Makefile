@@ -27,7 +27,7 @@ clean:
 	echo `sudo kextunload -q NBD.kext 2>&1`
 	sudo rm -rf NBD.kext
 
-test: clean kext setup
+test: clean kext setup teardown
 	sync  # in case of crash during load
 	sleep .5
 	sync
@@ -39,3 +39,6 @@ test: clean kext setup
 
 setup: setup.c nbd_ioctl.h
 	gcc -std=c99 -O0 -g -o setup setup.c
+
+teardown: teardown.c nbd_ioctl.h
+	gcc -std=c99 -O0 -g -o teardown teardown.c

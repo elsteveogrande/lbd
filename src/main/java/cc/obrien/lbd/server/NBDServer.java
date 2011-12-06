@@ -238,7 +238,7 @@ final public class NBDServer extends Server
 							}
 						}
 					}
-					catch(EOFException e)  { /* premature end of socket; clean up */ this.input.close(); this.output.close(); }
+					catch(EOFException e)  { /* premature end of socket; clean up */ this.input.close(); this.output.close(); break; }
 					catch(SocketTimeoutException e)  { continue; }
 				}
 			}

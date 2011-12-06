@@ -65,7 +65,7 @@ void stop_bsd_devices()
 
 	for(i=0; i<DEVICE_COUNT; i++)
 	{
-		device_cleanup(i);
+		device_dealloc(i);
 	}
 }
 

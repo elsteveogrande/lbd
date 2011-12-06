@@ -129,21 +129,37 @@ static int log_2(uint64_t x)
 }
 
 
-static void connect_call_complete(socket_t socket, void *cookie, int waitf)
+static void socket_event(socket_t socket, void *cookie, int waitf)
 {
 	int minor_number;
+	device *dev;
 	
-	// XXX race
 	minor_number = (int) (long) cookie;
-	if(devices[minor_number].socket == socket)
+	dev = &(devices[minor_number]);
+	
+	lck_spin_lock(dev->lock);
+	do
 	{
-		printf("nbd: async socket: connect call completed for device %d\n", minor_number);
-		devices[minor_number].connect_call_completed = 1;
-	}
-	else
-	{
-		// oops!  referenced an old socket
-	}
+
+		if(dev->socket == socket)
+		{
+			printf("nbd: device %d: socket event\n", minor_number);
+
+			if(! sock_isconnected(socket))
+			{
+				printf("nbd: device %d: not connected\n", minor_number);
+
+				// connection broke; close and teardown device
+				device_teardown(minor_number);
+			}
+		}
+		else
+		{
+			// oops!  referenced an old socket
+		}
+	
+	} while(0);
+	lck_spin_unlock(dev->lock);
 }
 
 
@@ -160,86 +176,154 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	minor_number = minor(bsd_dev);
 	
 	device *dev = &(devices[minor_number]);
-	printf("nbd: dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
+	//printf("nbd: dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
 
 	ret = 0;
 
 	switch(cmd)
 	{
+		
 	case DKIOCGETBLOCKSIZE:  // uint32_t: block size
-		*(uint32_t *)data = dev->client_block_size;
+
+		lck_spin_lock(dev->lock);
+		do
+		{
+
+			*(uint32_t *)data = dev->client_block_size;
+
+		} while(0);
+		lck_spin_unlock(dev->lock);
 		break;
+	
 	
 	case DKIOCSETBLOCKSIZE:
-		dev->client_block_size = *(uint32_t *) data;
+
+		lck_spin_lock(dev->lock);
+		do
+		{
+
+			dev->client_block_size = *(uint32_t *) data;
+
+		} while(0);
+		lck_spin_unlock(dev->lock);
 		break;
+	
 	
 	case DKIOCGETBLOCKCOUNT:  // uint64_t: block count
-		if(! (dev->connect_call_completed && dev->socket) )
+
+		lck_spin_lock(dev->lock);
+		do
 		{
-			ret = ENXIO;
-			break;
-		}
-		*(long long *)data = dev->size >> log_2((uint64_t)(dev->client_block_size));
+
+			if(! dev->socket)
+			{
+				ret = ENXIO;
+				break;
+			}
+			*(long long *)data = dev->size >> log_2((uint64_t)(dev->client_block_size));
+
+		} while(0);
+		lck_spin_unlock(dev->lock);
+
 		break;
+		
 	
 	case IOCTL_CONNECT_DEVICE:
-		ioctl_connect = (ioctl_connect_device_t *) data;
-		server_sockaddr = (struct sockaddr *) &(ioctl_connect->server);
-		unsigned char *p = (unsigned char *) server_sockaddr;
-		printf("%p: ", server_sockaddr);
-		for(i=0; i<16; i++)
-			printf("%02x ", (p[i] & 0xff));
 
-		// already connected?
-		if(dev->socket)
+		lck_spin_lock(dev->lock);
+		do
 		{
-			ret = EBUSY;
-			break;
-		}
+		
+			ioctl_connect = (ioctl_connect_device_t *) data;
+			server_sockaddr = (struct sockaddr *) &(ioctl_connect->server);
 
-		// new socket
-		printf("fam=%d type=%d proto=%d\n", ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol);
-		result = sock_socket(ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol, connect_call_complete, (void*) (long) minor_number, &(dev->socket));
-		if(result)
-		{
-			printf("nbd: ioctl_connect: during sock_socket: %d\n", result);
-			ret = result;
-			break;
-		}
+			// already connected?
+			if(dev->socket)
+			{
+				ret = EBUSY;
+				break;
+			}
+			
+			// new socket
+			result = sock_socket(ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol, socket_event, (void*) (long) minor_number, &(dev->socket));
+			if(result)
+			{
+				printf("nbd: ioctl_connect: during sock_socket: %d\n", result);
+				ret = result;
+				break;
+			}
+
+			// try to connect (asynchronously)
+			result = sock_connect(dev->socket, server_sockaddr, MSG_DONTWAIT);		// do nonblocking call
+			if(result != EINPROGRESS)
+			{
+				printf("nbd: ioctl_connect: during sock_connect: %d\n", result);
+				sock_close(dev->socket);
+				dev->socket = 0;
+				ret = result;
+				break;
+			}
 		
-		// try to connect (asynchronously)
-		result = sock_connect(dev->socket, server_sockaddr, MSG_DONTWAIT);  // MSG_DONTWAIT -> don't block
-		if(result != EINPROGRESS)
-		{
-			printf("nbd: ioctl_connect: during sock_connect: %d\n", result);
-			sock_close(dev->socket);
-			dev->socket = 0;
-			ret = result;
-			break;
-		}
-		
+		} while(0);
+		lck_spin_unlock(dev->lock);		
 		break;
+
 
 	case IOCTL_CONNECTIVITY_CHECK:  // uint32_t: connected boolean
-		socket = dev->socket;
-		if(! socket)
+
+		lck_spin_lock(dev->lock);
+		do
 		{
-			ret = ENXIO;
-			break;
-		}
+
+			socket = dev->socket;
+			if(! socket)
+			{
+				ret = ENXIO;
+				break;
+			}
+
+			*(int *)data = sock_isconnected(socket);
 		
-		if(! dev->connect_call_completed)
-		{
-			ret = EBUSY;
-			break;
-		}
-		
-		*(int *)data = sock_isconnected(socket);
+		} while(0);
+		lck_spin_unlock(dev->lock);
 		break;
 
+
+	case IOCTL_TEARDOWN_DEVICE:		// uint32_t: just say 1 to acknowledge
+		printf("nbd: spinlock %d for teardown...\n", minor_number);
+
+		lck_spin_lock(dev->lock);
+		do
+		{
+
+			if(! dev->socket)
+			{
+				ret = EINVAL;
+				break;
+			}
+						
+			device_teardown(minor_number);
+			*(int *)data = 1;
+
+		} while(0);
+		lck_spin_unlock(dev->lock);
+		break;
+	
+	
+	case -123123123:  // uint32_t: something
+
+		lck_spin_lock(dev->lock);
+		do
+		{
+
+			// meat of ioctl goes here
+
+		} while(0);
+		lck_spin_unlock(dev->lock);		
+		break;
+	
+	
 	default:
-		printf("nbd: ctl: ioctl: saying ENOTTY\n");
 		ret = ENOTTY;
 	}
 
