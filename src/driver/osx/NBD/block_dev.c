@@ -7,6 +7,7 @@
 #include <sys/conf.h>
 #include <sys/disk.h>
 #include <block_dev.h>
+#include "nbd_session.h"
 
 
 extern device devices[];
@@ -200,7 +201,7 @@ int try_reconnect_async(int minor)
 
 	// new socket
 	ioctl_connect_device_t *server_info = &(dev->server_info);
-	result = sock_socket(server_info->addr_family, server_info->addr_socktype, server_info->addr_protocol, socket_event, (void*) (long) minor, &(dev->socket));
+	result = sock_socket(server_info->addr_family, server_info->addr_socktype, server_info->addr_protocol, NULL, (void*) (long) minor, &(dev->socket));
 	if(result)
 	{
 		printf("nbd: ioctl_connect: during try_reconnect_async: %d\n", result);
@@ -233,6 +234,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	struct sockaddr * server_sockaddr;
 	socket_t socket;
 	int i;
+	nbd_hello_t hello;
 	
 	minor_number = minor(bsd_dev);
 	
@@ -343,6 +345,44 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		break;
 
 
+	case IOCTL_READ_PARAMS:			// uint32_t: status bool
+
+		lck_spin_lock(dev->lock);
+		do
+		{
+			
+			socket = dev->socket;
+			if(! socket)
+			{
+				ret = ENXIO;
+				break;
+			}
+
+			if(! sock_isconnected(socket))
+			{
+				ret = ENXIO;
+				break;
+			}
+			
+			ret = nbd_read_hello(minor_number, socket, &hello);
+			if(ret || !hello.valid)
+			{
+				// disconnect and leave in invalid state until teardown
+				sock_shutdown(socket, SHUT_RDWR);
+				
+				if(!ret)
+				{
+					ret = EIO;
+				}
+			}
+
+			*(int *)data = (ret == 0);
+
+		} while(0);
+		lck_spin_unlock(dev->lock);
+		break;
+		
+		
 	case IOCTL_TEARDOWN_DEVICE:		// uint32_t: just say 1 to acknowledge
 		printf("nbd: spinlock %d for teardown...\n", minor_number);
 

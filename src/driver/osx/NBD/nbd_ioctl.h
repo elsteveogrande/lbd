@@ -31,6 +31,7 @@ typedef struct ioctl_connect_device
 
 #define IOCTL_CONNECT_DEVICE            _IOW('C',  1, ioctl_connect_device_t)
 #define IOCTL_CONNECTIVITY_CHECK		_IOR('C',  2, uint32_t)
-#define IOCTL_TEARDOWN_DEVICE           _IOR('C',  3, uint32_t)
+#define IOCTL_READ_PARAMS               _IOR('C',  3, uint32_t)
+#define IOCTL_TEARDOWN_DEVICE           _IOR('C',  4, uint32_t)
 
 #endif

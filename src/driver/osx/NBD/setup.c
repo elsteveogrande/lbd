@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
 	int result;
 	ioctl_connect_device_t request;
 	uint32_t conn_status;
+	uint32_t hello_status;
 	int success;
 	struct timeval t0;
 	struct timeval t1;
@@ -103,6 +104,19 @@ int main(int argc, char *argv[])
 	}
 
 	printf("connection status %d\n", success);
+
+
+	// read server's hello packet
+	result = ioctl(fd, IOCTL_READ_PARAMS, &hello_status);
+	if(result)
+	{
+		perror("ioctl");
+		ret = 5;
+		goto out_close;
+	}
+	
+	printf("read param status %d\n", hello_status);
+
 
 out_close:
 	close(fd);
