@@ -9,8 +9,8 @@ BOTH=$(CC) $(INCLUDE) $(COMPILE_D) $(COMPILE_F) $(SYS) -Xlinker -kext -nostdlib 
 
 all: kext setup
 
-nbd: nbd.c nbd.h device.c device.h common.c common.h nbd_ioctl.h block_dev.h block_dev.c
-	$(BOTH) -o nbd nbd.c device.c common.c block_dev.c
+nbd: nbd.c nbd.h device.c device.h common.c common.h nbd_ioctl.h block_dev.h block_dev.c nbd_session.h nbd_session.c
+	$(BOTH) -o nbd nbd.c device.c common.c block_dev.c nbd_session.c
 
 kext: nbd
 	sudo rm -rf NBD.kext

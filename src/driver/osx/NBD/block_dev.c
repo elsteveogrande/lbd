@@ -29,7 +29,7 @@ int  dev_open(dev_t bsd_dev, int flags, int devtype, proc_t proc)
 	
 	// locked by us
 
-	if(dev->opened_by)
+	if(dev->opened_by && dev->opened_by != proc)
 	{
 		ret = EBUSY;
 		goto unlock;
@@ -93,6 +93,8 @@ void dev_strategy(buf_t bp)
 	int is_write;
 	device *dev;
 	int ret;
+	void * buffer;
+	size_t buffer_size;
 	
 	bsd_dev = buf_device(bp);
 	minor_number = minor(bsd_dev);
@@ -104,10 +106,29 @@ void dev_strategy(buf_t bp)
 	is_read = (buf_flags(bp) & B_READ) ? 1 : 0;
 	is_write = ! is_read;  // there's no B_WRITE flag
 
-	printf("nbd: strategy minor=%d read=%d write=%d start@ block=%lld offset=0x%016llx bytecount=%lld\n", minor_number, is_read, is_write, starting_block, starting_byte, byte_count);
+	buffer = (void *) buf_dataptr(bp);
+	buffer_size = buf_size(bp);
 
-	ret = EIO;
-	goto out;
+	printf("nbd: strategy minor=%d read=%d write=%d start@ block=%lld offset=0x%016llx bytecount=%lld buffer=%p buffersize=%ld\n", minor_number, is_read, is_write, starting_block, starting_byte, byte_count, buffer, buffer_size);
+
+	lck_spin_lock(dev->lock);
+
+	if( ! (dev->socket && sock_isconnected(dev->socket)) )
+	{
+		ret = EIO;
+		goto unlock;
+	}
+	
+	if( ((long long) buffer_size) < byte_count )
+	{
+		ret = EIO;
+		goto unlock;
+	}
+	
+	ret = nbd_read(minor_number, dev->socket, buffer, starting_byte, byte_count);
+
+unlock:
+	lck_spin_unlock(dev->lock);
 
 out:
 	buf_seterror(bp, ret);
@@ -243,6 +264,10 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 		{
 
 			dev->client_block_size = *(uint32_t *) data;
+			if(dev->client_block_size < 0 || dev->client_block_size > 512)
+			{
+				dev->client_block_size = 512;
+			}
 
 		} while(0);
 		lck_spin_unlock(dev->lock);
