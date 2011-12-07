@@ -23,7 +23,7 @@ typedef struct ioctl_connect_device
 	// (the kernel-mode compile versus userland compile had 'sockaddr_storage' compile to different sizes...)
 	union
 	{
-		struct sockaddr storage;
+		struct sockaddr addr;
 		char bytes[240];   // try to make this struct an even 256 bytes
 	} server;
 } ioctl_connect_device_t;
@@ -31,6 +31,6 @@ typedef struct ioctl_connect_device
 
 #define IOCTL_CONNECT_DEVICE            _IOW('C',  1, ioctl_connect_device_t)
 #define IOCTL_CONNECTIVITY_CHECK		_IOR('C',  2, uint32_t)
-#define IOCTL_TEARDOWN_DEVICE           _IOW('C',  3, uint32_t)
+#define IOCTL_TEARDOWN_DEVICE           _IOR('C',  3, uint32_t)
 
 #endif

@@ -21,7 +21,7 @@ kext: nbd
 	sudo chmod -R 755 NBD.kext
 
 clean:
-	rm -f nbd *.o
+	rm -f nbd *.o setup teardown
 	rm -rf setup.dSYM
 	sync  # in case of crash during unload
 	echo `sudo kextunload -q NBD.kext 2>&1`

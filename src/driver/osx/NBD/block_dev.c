@@ -141,25 +141,65 @@ static void socket_event(socket_t socket, void *cookie, int waitf)
 	do
 	{
 
-		if(dev->socket == socket)
+		// an (unreliable) attempt to verify we are still talking about the same socket...
+		if(dev->socket != socket)
 		{
-			printf("nbd: device %d: socket event\n", minor_number);
-
-			if(! sock_isconnected(socket))
-			{
-				printf("nbd: device %d: not connected\n", minor_number);
-
-				// connection broke; close and teardown device
-				device_teardown(minor_number);
-			}
+			break;
 		}
-		else
+
+		printf("nbd: device %d: socket event\n", minor_number);
+
+		if(! sock_isconnected(socket))
 		{
-			// oops!  referenced an old socket
+			printf("nbd: device %d: not connected\n", minor_number);
 		}
 	
 	} while(0);
 	lck_spin_unlock(dev->lock);
+}
+
+
+// XXX need mutex when calling this!
+int try_reconnect_async(int minor)
+{
+	device *dev;
+	int ret;
+	int result;
+	
+	dev = & (devices[minor]);
+	
+	// ditch old socket, if any
+	if(dev->socket)
+	{
+		sock_close(dev->socket);
+		dev->socket = 0;
+	}
+
+	ret = 0;
+
+	// new socket
+	ioctl_connect_device_t *server_info = &(dev->server_info);
+	result = sock_socket(server_info->addr_family, server_info->addr_socktype, server_info->addr_protocol, socket_event, (void*) (long) minor, &(dev->socket));
+	if(result)
+	{
+		printf("nbd: ioctl_connect: during try_reconnect_async: %d\n", result);
+		ret = result;
+		goto out;
+	}
+
+	// try to connect (asynchronously; nonblocking call)
+	result = sock_connect(dev->socket, &(server_info->server.addr), MSG_DONTWAIT);
+	if(result != EINPROGRESS)
+	{
+		printf("nbd: ioctl_connect: during try_reconnect_async: %d\n", result);
+		sock_close(dev->socket);
+		dev->socket = 0;
+		ret = result;
+		goto out;
+	}
+	
+out:
+	return ret;
 }
 
 
@@ -176,7 +216,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	minor_number = minor(bsd_dev);
 	
 	device *dev = &(devices[minor_number]);
-	//printf("nbd: dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
+	printf("nbd: dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
 
 	ret = 0;
 
@@ -243,25 +283,14 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 				ret = EBUSY;
 				break;
 			}
-			
-			// new socket
-			result = sock_socket(ioctl_connect->addr_family, ioctl_connect->addr_socktype, ioctl_connect->addr_protocol, socket_event, (void*) (long) minor_number, &(dev->socket));
-			if(result)
-			{
-				printf("nbd: ioctl_connect: during sock_socket: %d\n", result);
-				ret = result;
-				break;
-			}
 
-			// try to connect (asynchronously)
-			result = sock_connect(dev->socket, server_sockaddr, MSG_DONTWAIT);		// do nonblocking call
+			memcpy(&(dev->server_info), ioctl_connect, sizeof(ioctl_connect_device_t));
+			
+			result = try_reconnect_async(minor_number);
 			if(result != EINPROGRESS)
 			{
-				printf("nbd: ioctl_connect: during sock_connect: %d\n", result);
-				sock_close(dev->socket);
-				dev->socket = 0;
+				// if not EINPROGRESS, then this is an error
 				ret = result;
-				break;
 			}
 		
 		} while(0);

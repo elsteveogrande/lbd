@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <device.h>
 #include <block_dev.h>
+#include "nbd_ioctl.h"
 
 
 extern lck_grp_attr_t *lck_grp_attr;
@@ -99,8 +100,9 @@ void device_teardown(int minor)
 {
 	printf("nbd: teardown %d\n", minor);
 	
-	if(devices[minor].socket)
+	if(devices[minor].socket && sock_isconnected(devices[minor].socket))
 	{
+		// XXX kernel panics a lot when we leave this enabled
 		//sock_close(devices[minor].socket);
 	}
 	
@@ -110,12 +112,13 @@ void device_teardown(int minor)
 
 // NOTE: do while we have the spinlock
 void device_wipe(int minor)
-{	
+{
 	// zero out / reinitialize the appropriate fields.  Do not wipe the following: minor, lock
 	devices[minor].writable = 0;
 	devices[minor].size = 0;
 	devices[minor].socket = 0;
 	devices[minor].opened_by = 0;
 	devices[minor].client_block_size = BLOCK_SIZE;
-	memset( &(devices[minor].server), 0, sizeof(struct sockaddr_storage) );
+	devices[minor].server_valid = 0;
+	memset( &(devices[minor].server_info), 0, sizeof(ioctl_connect_device_t) );
 }
