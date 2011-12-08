@@ -239,7 +239,6 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	minor_number = minor(bsd_dev);
 	
 	device *dev = &(devices[minor_number]);
-	printf("nbd: dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
 
 	ret = 0;
 
@@ -418,6 +417,7 @@ int  dev_ioctl_bdev(dev_t bsd_dev, u_long cmd, caddr_t data, int flags, proc_t p
 	
 	
 	default:
+		printf("nbd: unknown dev_ioctl_bdev %d (%08x) minor=%d dev=%p cmd=%08lx data=%p flags=%d proc=%p\n", bsd_dev, bsd_dev, minor(bsd_dev), dev, cmd, data, flags, proc);
 		ret = ENOTTY;
 	}
 

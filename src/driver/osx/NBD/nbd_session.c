@@ -3,14 +3,63 @@
 #include "nbd_session.h"
 
 
+/**
+ * @return errno
+ */
+static int receive(socket_t socket, char *buffer, int length)
+{
+	mbuf_t mbuf;
+	size_t size;
+	int result;
+	int ret;
+	buffer;
+	int total;
+	int partial_size;
+	mbuf_t tmp_buf_packet;
+	mbuf_t tmp_buf_chain;
+	char *ptr;
+	
+	ret = 0;
+	total = 0;
+	while(total < length)
+	{
+		mbuf = 0;
+		size = length - total;
+		result = sock_receivembuf(socket, NULL, &mbuf, MSG_WAITALL, &size);
+		if(result)
+		{
+			ret = result;
+			break;
+		}
+
+		tmp_buf_packet = mbuf;
+		while(tmp_buf_packet)
+		{
+			tmp_buf_chain = tmp_buf_packet;
+			while(tmp_buf_chain)
+			{
+				ptr = (char *)  ( ((long)mbuf_datastart(tmp_buf_chain)) + ((long)mbuf_leadingspace(tmp_buf_chain)) );
+				memcpy(&(buffer[total]), ptr, mbuf_len(tmp_buf_chain));
+				total += mbuf_len(tmp_buf_chain);
+				tmp_buf_chain = (mbuf_t) mbuf_next(tmp_buf_chain);
+			}
+			
+			tmp_buf_packet = mbuf_nextpkt(tmp_buf_packet);
+		}
+	
+		mbuf_freem_list(mbuf);
+	}
+	
+	return ret;
+}
+
+
 errno_t nbd_read_hello(int minor, socket_t socket, nbd_hello_t *hello)
 {
 	int result;
 	int ret;
-	mbuf_t buffer = 0;
-	size_t size;
 	char expect_magic[] = "NBDMAGIC";
-	char *ptr;
+	char buffer[152];
 	
 	printf("nbd: trying to read hello %d\n", minor);
 
@@ -18,30 +67,22 @@ errno_t nbd_read_hello(int minor, socket_t socket, nbd_hello_t *hello)
 	
 	ret = 0;
 	
-	size = 152;  // hello packet size
-	result = sock_receivembuf(socket, NULL, &buffer, 0, &size);
+	result = receive(socket, buffer, 152);
 	if(result)
 	{
 		ret = result;
-		goto free_buffers;
+		goto out;
 	}
 
-	ptr = mbuf_datastart(buffer) + mbuf_leadingspace(buffer);
-	if(memcmp(ptr, expect_magic, 8))
+	if(memcmp(buffer, expect_magic, 8))
 	{
 		printf("nbd: nbd_read_hello: bad magic\n");
-		ret = 1;
-		goto free_buffers;
+		ret = EILSEQ;
+		goto out;
 	}
 
 	hello->valid = 1;
 
-free_buffers:
-	if(buffer)
-	{
-//		mbuf_freem_list(buffer);
-	}
-	
 out:
 	return ret;
 }
