@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <string.h>
+#include <sys/malloc.h>
 #include "nbd_session.h"
 
 
@@ -88,15 +89,95 @@ out:
 }
 
 
-errno_t nbd_read(int minor, socket_t socket, unsigned char *buffer, int64_t offset, int64_t length)
+typedef struct fake_block
+{
+	long long block_number;
+	void * ptr;
+} fake_block_t;
+	
+
+fake_block_t fake_blocks[1048576];
+
+
+void nbd_global_init()
 {
 	int i;
 	
-	for(i=0; i<length; i++)
+	for(i=0; i<1048576; i++)
 	{
-		buffer[i] = (offset + i) & 0xff;
+		fake_blocks[i].block_number = -1;
+		fake_blocks[i].ptr = 0;
+	}
+}
+
+
+void * fake_get_block(long long block_number)
+{
+	int i;
+	
+	for(i=0; i<1048576; i++)
+	{
+		if(fake_blocks[i].block_number == -1)
+		{
+			// hit end of allocation chain; create a mapping now
+			fake_blocks[i].block_number = block_number;
+			fake_blocks[i].ptr = _MALLOC(512, M_UDFNODE, M_NOWAIT | M_ZERO);
+			return fake_blocks[i].ptr;
+		}
+		else
+		{
+			if(fake_blocks[i].block_number == block_number)
+			{
+				return fake_blocks[i].ptr;
+			}
+		}
 	}
 	
 	return 0;
 }
 
+
+static errno_t fake_read(unsigned char *buffer, int64_t offset, int64_t length)
+{
+	int64_t p;
+	void *ptr;
+	
+	p = 0;
+	while(p < length)
+	{
+		ptr = fake_get_block(offset >> 9);
+		memcpy(buffer + p, ptr, 512);
+		p += 512;
+	}
+	
+	return 0;
+}
+
+
+static errno_t fake_write(unsigned char *buffer, int64_t offset, int64_t length)
+{
+	int64_t p;
+	void *ptr;
+	
+	p = 0;
+	while(p < length)
+	{
+		ptr = fake_get_block(offset >> 9);
+		memcpy(ptr, buffer + p, 512);
+		p += 512;
+	}
+	
+	return 0;
+}
+
+
+errno_t nbd_read(int minor, socket_t socket, unsigned char *buffer, int64_t offset, int64_t length)
+{
+	return fake_read(buffer, offset, length);
+}
+
+
+errno_t nbd_write(int minor, socket_t socket, unsigned char *buffer, int64_t offset, int64_t length)
+{
+	return fake_write(buffer, offset, length);
+}

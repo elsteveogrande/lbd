@@ -117,20 +117,24 @@ void dev_strategy(buf_t bp)
 	if( ! (dev->socket && sock_isconnected(dev->socket)) )
 	{
 		ret = EIO;
-		goto unlock;
+		goto unlock_error;
 	}
 	
 	if( ((long long) buffer_size) < byte_count )
 	{
 		ret = EIO;
-		goto unlock;
+		goto unlock_error;
 	}
 	
-	ret = nbd_read(minor_number, dev->socket, buffer, starting_byte, byte_count);
-
-unlock:
 	lck_spin_unlock(dev->lock);
 
+	ret = nbd_read(minor_number, dev->socket, buffer, starting_byte, byte_count);
+	goto out;
+
+unlock_error:
+	lck_spin_unlock(dev->lock);
+	goto out;
+	
 out:
 	buf_seterror(bp, ret);
 	buf_biodone(bp);
