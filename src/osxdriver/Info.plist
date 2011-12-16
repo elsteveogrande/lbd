@@ -31,5 +31,16 @@
 		<key>com.apple.kpi.unsupported</key>
 		<string>9.0.0</string>
 	</dict>
+	<key>SimpleCryptoDisk</key>
+	<dict>
+		<key>CFBundleIdentifier</key>
+		<string>cc.obrien.lbd</string>
+		<key>IOClass</key>
+		<string>cc_obrien_lbd_LBDBlockDevice</string>
+		<key>IOMatchCategory</key>
+		<string>IOBlockStorageDevice</string>
+		<key>IOProviderClass</key>
+		<string>IOMedia</string>
+	</dict>
 </dict>
 </plist>
