@@ -1,0 +1,6 @@
+nbd
+setup
+teardown
+*.o
+*.dSYM
+
