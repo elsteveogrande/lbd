@@ -128,7 +128,15 @@ void dev_strategy(buf_t bp)
 	
 	lck_spin_unlock(dev->lock);
 
-	ret = nbd_read(minor_number, dev->socket, buffer, starting_byte, byte_count);
+	if(is_read)
+	{
+		ret = nbd_read(minor_number, dev->socket, buffer, starting_byte, byte_count);
+	}
+	else  // is write
+	{
+		ret = nbd_write(minor_number, dev->socket, buffer, starting_byte, byte_count);
+	}
+	
 	goto out;
 
 unlock_error:

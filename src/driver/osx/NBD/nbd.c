@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 #include <nbd.h>
+#include <nbd_session.h>
 #include <device.h>
 #include <common.h>
 
@@ -30,6 +31,8 @@ kern_return_t driver_start(kmod_info_t *ki, void *d)
 		printf("nbd: start_bsd_devices: %d (%08x)\n", result, result);
 		return result;
 	}
+
+	nbd_global_init();
 
 	printf("nbd: started\n");
 	return KERN_SUCCESS;

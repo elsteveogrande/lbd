@@ -92,21 +92,21 @@ out:
 typedef struct fake_block
 {
 	long long block_number;
-	void * ptr;
+	unsigned char data[512];
 } fake_block_t;
 	
 
-fake_block_t fake_blocks[1048576];
+#define FAKE_SECTORS 1048576
+fake_block_t fake_blocks[FAKE_SECTORS];
 
 
 void nbd_global_init()
 {
 	int i;
 	
-	for(i=0; i<1048576; i++)
+	for(i=0; i<FAKE_SECTORS; i++)
 	{
 		fake_blocks[i].block_number = -1;
-		fake_blocks[i].ptr = 0;
 	}
 }
 
@@ -114,23 +114,26 @@ void nbd_global_init()
 void * fake_get_block(long long block_number)
 {
 	int i;
+	void *mem;
 	
-	for(i=0; i<1048576; i++)
+	for(i=0; i<FAKE_SECTORS; i++)
 	{
 		if(fake_blocks[i].block_number == -1)
 		{
-			// hit end of allocation chain; create a mapping now
 			fake_blocks[i].block_number = block_number;
-			fake_blocks[i].ptr = _MALLOC(512, M_UDFNODE, M_NOWAIT | M_ZERO);
-			return fake_blocks[i].ptr;
 		}
 		else
 		{
 			if(fake_blocks[i].block_number == block_number)
 			{
-				return fake_blocks[i].ptr;
+				return &(fake_blocks[i].data);
 			}
 		}
+	}
+	
+	if(i == FAKE_SECTORS)
+	{
+		return -1;
 	}
 	
 	return 0;
@@ -145,7 +148,12 @@ static errno_t fake_read(unsigned char *buffer, int64_t offset, int64_t length)
 	p = 0;
 	while(p < length)
 	{
-		ptr = fake_get_block(offset >> 9);
+		ptr = fake_get_block((offset + p) >> 9);
+		if(ptr == -1)
+		{
+			return ENOMEM;
+		}
+
 		memcpy(buffer + p, ptr, 512);
 		p += 512;
 	}
@@ -158,14 +166,21 @@ static errno_t fake_write(unsigned char *buffer, int64_t offset, int64_t length)
 {
 	int64_t p;
 	void *ptr;
+	int i;
 	
 	p = 0;
 	while(p < length)
 	{
-		ptr = fake_get_block(offset >> 9);
+		ptr = fake_get_block((offset + p) >> 9);
+		if(ptr == -1)
+		{
+			return ENOMEM;
+		}
+		
 		memcpy(ptr, buffer + p, 512);
 		p += 512;
 	}
+
 	
 	return 0;
 }

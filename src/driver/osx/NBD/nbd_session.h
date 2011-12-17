@@ -17,9 +17,13 @@ typedef struct nbd_hello
 } nbd_hello_t;
 
 
+void nbd_global_init();
+
 errno_t nbd_read_hello(int minor, socket_t socket, nbd_hello_t *result);
 
 errno_t nbd_read(int minor, socket_t socket, unsigned char *buffer, int64_t offset, int64_t length);
+
+errno_t nbd_write(int minor, socket_t socket, unsigned char *buffer, int64_t offset, int64_t length);
 
 
 #endif
