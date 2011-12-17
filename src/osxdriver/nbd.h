@@ -13,7 +13,9 @@ public:
 	
 	virtual bool init(OSDictionary *properties = 0);
 	virtual bool start(IOService *provider);
+	virtual void stop(IOService *provider);
 	virtual void free();
+	virtual IOService * probe(IOService *provider, SInt32 *score);
 	virtual bool handleOpen(IOService *client, IOOptionBits options, void *access);
 	virtual bool handleIsOpen(const IOService *client) const;
 	virtual void handleClose(IOService *client, IOOptionBits options);

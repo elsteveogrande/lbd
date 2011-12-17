@@ -1,6 +1,6 @@
-GCC=gcc -arch x86_64 -arch i386 -Wall -fmessage-length=0 -nostdinc -fno-builtin -Wno-trigraphs -fno-exceptions -force_cpusubtype_ALL -msoft-float -O0 -fno-common -mkernel -finline -fno-keep-inline-functions -Wmissing-prototypes -Wreturn-type -Wunused-variable -Wshorten-64-to-32 -DDEBUG=1 -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -isysroot /Developer/SDKs/MacOSX10.7.sdk -fasm-blocks -mmacosx-version-min=10.5 -gdwarf-2 -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -I/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/Kernel.framework/Headers -I.
+GCC=gcc -g -O0 -arch x86_64 -arch i386 -Wall -fmessage-length=0 -nostdinc -fno-builtin -Wno-trigraphs -fno-exceptions -force_cpusubtype_ALL -msoft-float -O0 -fno-common -mkernel -finline -fno-keep-inline-functions -Wmissing-prototypes -Wreturn-type -Wunused-variable -Wshorten-64-to-32 -DDEBUG=1 -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -isysroot /Developer/SDKs/MacOSX10.7.sdk -fasm-blocks -mmacosx-version-min=10.5 -gdwarf-2 -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -I/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/Kernel.framework/Headers -I.
 GCCPP=$(GCC) -x c++ -fno-rtti -fcheck-new -fapple-kext
-LD=$(CC) -arch x86_64 -arch i386 -isysroot /Developer/SDKs/MacOSX10.6.sdk -mmacosx-version-min=10.5 -lcpp_kext -Xlinker -kext -nostdlib -lkmodc++ -lkmod -lcc_kext
+LD=gcc -arch x86_64 -arch i386 -isysroot /Developer/SDKs/MacOSX10.6.sdk -mmacosx-version-min=10.5 -lcpp_kext -Xlinker -kext -nostdlib -lkmodc++ -lkmod -lcc_kext
 
 all: kext
 

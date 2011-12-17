@@ -8,18 +8,55 @@ OSDefineMetaClassAndStructors(cc_obrien_nbd_NBDBlockDevice, IOBlockStorageDevice
 	
 bool cc_obrien_nbd_NBDBlockDevice::init(OSDictionary *properties)
 {
-	return false;
+	IOLog("init: try super first\n");
+	
+	if(! super::init(properties))
+	{
+		IOLog("super would not initialize\n");
+		return false;
+	}
+	
+	return true;
 }
 
 
 bool cc_obrien_nbd_NBDBlockDevice::start(IOService *provider)
 {
-	return false;
+	IOLog("start: try super first\n");
+
+	if(! super::start(provider))
+	{
+		IOLog("super would not start\n");
+		return false;
+	}
+	
+	return true;
+}
+
+
+void cc_obrien_nbd_NBDBlockDevice::stop(IOService *provider)
+{
+	IOLog("stopping\n");
+	super::stop(provider);
 }
 
 
 void cc_obrien_nbd_NBDBlockDevice::free()
-{	
+{
+	IOLog("freeing\n");
+	super::free();
+}
+
+
+IOService * cc_obrien_nbd_NBDBlockDevice::probe(IOService *provider, SInt32 *score)
+{
+	IOService *ret = super::probe(provider, score);
+	if(! ret)
+	{
+		IOLog("super::probe failed\n");
+	}
+
+	return ret;
 }
 
 
