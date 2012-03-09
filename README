@@ -150,9 +150,13 @@ DEVICE_INFO_STRINGS
                 gets a bunch of informational config strings
 
 LIVE_ADD_LAYER <filename>
-                adds an expandable layer as the new top layer;
-                this layer is writable.  Specify a file that lives on (or can
-                be created on the server system.
+                adds an expandable layer as the new top layer, makes the new
+                topmost layer writable, and stops writing changes into the
+                former topmost layer (though its changes can still be read).
+                Lets you implement a kind of history-keeping or versioning
+                system; the previous change sets are kept as a new history is
+                written.   Just specify a file that lives on (or can be 
+                created on) the server system.
 
 
 Only the SHUTDOWN and LIVE_ADD_LAYER requests are supported by the included
