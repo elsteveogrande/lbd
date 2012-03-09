@@ -1,7 +1,0 @@
-nbd
-setup
-teardown
-*.o
-*.dSYM
-nbd.kext
-
