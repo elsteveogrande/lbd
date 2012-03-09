@@ -91,14 +91,55 @@ LBD="java -cp $CP cc.obrien.lbd.LBD"
 $LBD -a6666 -l7777 -s 1G -E /tmp/test.expandable
 
 # many machines using a common image from remote host,
-# but save changes locally
-$LBD -a8888 -l9999 -s 1G -E /tmp/test.expandable -n localhost:7777
+# but save changes locally.
+# First initialize 1GB ext3 volume.
+dd if=/dev/zero of=/tmp/test.flatfile bs=1024 count=1048576
+mkfs.ext3 /tmp/test.flatfile
+mkdir /tmp/vol
+mount -o loop /tmp/test.flatfile /tmp/vol
+# Put some useful data in there
+cp -rp /var/db /tmp/vol
+umount /tmp/vol
+# Export this on port 7777 on one machine.
+$LBD -l7777 -s 1G -F /tmp/test.flatfile
+# On another machine, use NBD to get at the flat file's contents,
+# and capture any change to that volume's blocks locally.
+$LBD -l9999 -s 1G -E /tmp/test.expandable -n masterhost:7777
+# On this same host, mount this block device via loopback
+nbd-client localhost 9999 /dev/nbd0
+
+
+Invocation
+
+general options:
+    -h                this help
+    -b blockcount     (-b or -s required) the size of the virtual device,
+                      in blocks (1 block = 512 bytes)
+    -s bytecount      (-b or -s required) the size of the virtual device,
+                      in bytes; can use suffix like K, M, G, T
+
+server options:
+    -l [ip:]port      the TCP ip/port to listen on for NBD clients
+                      (optional; default is 0.0.0.0:7777)
+    -a [ip:]port      the TCP ip/port to listen on for manager commands
+                      (optional; default is localhost:6666)
+
+to specify layers: (at least one is required)
+    -e filename       readonly expandable file
+    -E filename       writable expandable file
+    -f filename       readonly flat file (file size must == device size)
+    -F filename       writable flat file (file size must == device size)
+    -n ip:port        readonly remote NBD device (read cache enabled)
+    -N ip:port        writable remote NBD host (caching disabled)
+    -X ip:port        writable remote NBD host w/ assumed exclusive access
+                      (since exclusive access assumed, cache is enabled)
 
 
 Management Daemon
 
 The LBD process launches, in addition to the TCP listener for NBD block
 serving, a manager daemon that listens on another port (default 6666).
+
 Request types are:
 
 PING            get a "true" response back; otherwise does nothing
@@ -110,5 +151,13 @@ DEVICE_INFO_STRINGS
 
 LIVE_ADD_LAYER <filename>
                 adds an expandable layer as the new top layer;
-                this layer is writable.
+                this layer is writable.  Specify a file that lives on (or can
+                be created on the server system.
+
+
+Only the SHUTDOWN and LIVE_ADD_LAYER requests are supported by the included
+command line interface.  Run with:
+
+  java -cp (...) cc.obrien.lbd.manager.Control stop
+  java -cp (...) cc.obrien.lbd.manager.Control add (filename)
 
