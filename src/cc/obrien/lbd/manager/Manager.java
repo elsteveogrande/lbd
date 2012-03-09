@@ -116,7 +116,7 @@ final public class Manager extends Thread
 						response = new Response(request.serial, true);
 						break;
 				
-					case SHUTDOWN_ALL:
+					case SHUTDOWN:
 						System.err.printf("stop %s: ", device.toString());
 						device.stop();
 						System.err.println();

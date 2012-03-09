@@ -1,21 +1,31 @@
 
 LBD
 
-(Logical Block Device)
+LBD stands for Layered Block Device; this project is a server for such
+devices.  It aims to behave like an NBD (network block device) server such as
+the one the "nbd" project provides, and aims to be compatible with the client
+that is part of the Linux kernel.
 
-These devices act like physical ones but contain multiple layers, each of
-which can be readable or writable, and can capture separate data sets,
-representing the states of the device over multiple points in time.
+LBD devices behave like physical ones, in that they contain a sequence of
+blocks that may be read or written, but with additional logic happening
+transparently underneath.
 
-For example consider the following:
+Whereas a traditional block device (usually a hard disk, but could be
+something more virtual like an iSCSI target) simply stores or retrieves 
+sectors to/from a platter (or flash memory, or the iSCSI server), an LBD-
+type device stores to an NBD server.
+
+This LBD server can be as simple as a plain old block server, or can contain
+several layers to which reads and writes are assigned.  Layers are stackable.
+
+Consider the following example:
 
 layer 2   [writable sparse "change" file]
 layer 1   [readonly base flat file]
 layer 0   [readonly "null" layer]
 
 Let layer 1 be a readonly, static snapshot taken at some point in time.
-(This can be a physical device like /dev/sdb2, or a designated file that
-contains a byte-for-byte replica of a device.)
+(This can be a physical device like /dev/sdb2, or a special file.)
 
 Layer 2 is a writable file that contains changes made to the volume.
 Initially, layer 2 is empty; any reads from the device return data from
@@ -23,47 +33,82 @@ layer 1.  As writes are done to the device, the new blocks are stored in
 this change file; subsequent reads at these blocks' addresses will return
 the modified data.
 
-So this model can represent a possibly very large virtual device backed
-by static content (perhaps an "image" of a filesystem containing files for
-a large database) that is modifiable locally.  More usefully, this backing
-image can be exported to multiple machines, each with their own local
-changefiles, so that no hosts share each others' changes.  More usefully
-yet, these instances can be built very quickly so a replica of a filesystem
-(database instance) can be stood up in a very short time.
+(Layer 0 is a sentinel which is not writable but always readable, and reads
+from this layer always result in 0x00 bytes being written.)
 
-Layer 0 is a magic base layer that exists in all virtual block devices;
-it does not accept writes; any read will return null-bytes.
-
-
-Limits
-
-The virtual device has a Java long size, so it can theoretically hold
-(2^63) bytes of data.  It supports transfers of appx. 2GB (4194303 blocks).
-Individual layer types may have their own limits however.  The sparse
-change file (ExpandableFile) supports (2^45) bytes of data (32TB).
+So this model can represent a device backed by static content (perhaps an
+"image" of a filesystem containing files for a database) that is modifiable
+locally.  More usefully, this backing image can be exported to multiple
+machines, each with their own local changefiles, so that no hosts share each
+others' changes.  More usefully yet, these instances can be built very quickly
+so a replica of a filesystem (database instance) can be stood up in a very
+short time.
 
 
-Change file format
+Data Sources Supported
 
-* file divided up into 512-byte-aligned 512-byte-long blocks
-* each block is a table (containing 64 long entries) or a raw device block
-* the location of a virtual sector is mapped to a location in this file
-  using a hierarchy of tables; one would have to traverse 6 tables to get
-  the address of a single sector
-* block 0 is the "root" table
-* split the 45-bit address into a 36-bit sector number and 9-bit offset;
-  split the 36-bit sector number into 6 values of 0 to 63 and use them
-  as indexes into tables, starting at table 0.
+FlatFile        A simple format containing a sequence of 512-byte blocks.
+
+ExpandableFile  A "sparse" file that contains just modified sectors.  This
+                layer intercepts changes to the device, storing them to this
+                file.  Sectors not previously written here fail and are thus
+                reads to these "holes" are delegated to lower layers.
+
+NBD             Connects to another NBD server over TCP.  Can be any 
+                compatible NBD server such as the "nbd" project's server, or
+                another LBD instance (since every LBD instance serves over
+                NBD).
+
+NullLayer       Not really a datasource you would add yourself; it's
+                transparently always added to the bottom of the LBD device's
+                stack of layers.  Reads are always successful and result in
+                ASCII 0x00 bytes.  Writes are never successful (hopefully
+                a write would be captured by a higher, writeable layer).
 
 
-KNOWN ISSUES:
+An LBD device can be made writable or read-only.
 
-- need to implement nbd client support
-- on disconnect, a phantom new connection happens
-- would like a command that adds a new expandable file layer on top
-  and makes the one formerly on top read-only
-- needs to use "getopts" or similar instead of hardcoded main class!
-- much CPU time spent in Table.<init>; cache blocknumber -> offset in
-  second-chance FIFO (the blocknumber -> offset mappings, once assigned,
-  never change)
-- map large runs of blocks, less granularly, for performance
+
+Example client setup:
+
+# on Linux
+apt-get install nbd-client   # debian-like
+sudo yum install nbd         # fedora/redhat/centos like
+sudo modprobe nbd
+nbd-client 10.0.0.1 7777 /dev/nbd0
+
+# on OSX: coming soon!  See osx-nbd project on github...
+...
+
+
+Example server invocation:
+
+# vanilla block server; use a local (unmounted) hard disk
+# can also use a special file in lieu of a physical device
+CP=lib/java-getopt-1.0.13.jar
+CP=bin:$CP
+LBD="java -cp $CP cc.obrien.lbd.LBD"
+$LBD -a6666 -l7777 -s 1G -E /tmp/test.expandable
+
+# many machines using a common image from remote host,
+# but save changes locally
+$LBD -a8888 -l9999 -s 1G -E /tmp/test.expandable -n localhost:7777
+
+
+Management Daemon
+
+The LBD process launches, in addition to the TCP listener for NBD block
+serving, a manager daemon that listens on another port (default 6666).
+Request types are:
+
+PING            get a "true" response back; otherwise does nothing
+
+SHUTDOWN        stop device gracefully and shutdown
+
+DEVICE_INFO_STRINGS
+                gets a bunch of informational config strings
+
+LIVE_ADD_LAYER <filename>
+                adds an expandable layer as the new top layer;
+                this layer is writable.
+

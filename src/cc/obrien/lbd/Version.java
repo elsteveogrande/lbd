@@ -11,8 +11,8 @@ public final class Version
 	public static final byte MAJOR = 0;
 	
 	/** minor */
-	public static final byte MINOR = 3;
+	public static final byte MINOR = 7;
 	
 	/** patchlevel */
-	public static final byte PATCH = 0;
+	public static final byte PATCH = 1;
 }

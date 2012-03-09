@@ -27,7 +27,7 @@ public class Request implements Serializable
 		PING,
 
 		/** terminate all running devices; see {@link LBD#runningDevices} */
-		SHUTDOWN_ALL,
+		SHUTDOWN,
 
 		/** get each running device's {@link Device#toString()} */
 		DEVICE_INFO_STRINGS,

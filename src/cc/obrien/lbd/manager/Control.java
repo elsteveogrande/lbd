@@ -47,7 +47,7 @@ public class Control
 		}
 		else if(args[1].equals("stop"))
 		{
-			request = new Request(Request.Type.SHUTDOWN_ALL, 0);
+			request = new Request(Request.Type.SHUTDOWN, 0);
 			out.writeObject(request);
 			out.flush();
 			
