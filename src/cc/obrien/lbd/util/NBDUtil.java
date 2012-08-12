@@ -43,14 +43,17 @@ public class NBDUtil
 	 */
 	public static byte[] constructHello(long blockCount, boolean writable) throws IOException
 	{
+		// according to nbd-server.c this is the "old" negotiation packet, but...
+		// the procedure is: send INIT_PASSWD, magic, sizeof media, flags, zeros (reserved)
+		
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream(152);
 		DataOutputStream data = new DataOutputStream(bytes);
 		data.write("NBDMAGIC".getBytes());
 		data.write(new byte[] { 0x00, 0x00, 0x42, 0x02, -127, -122, 0x12, 0x53 });  //-127 == 0x81; -122 = 0x86
 		data.writeLong(512L * ((long)blockCount));
 		int flags = 
-			1							// "has flags"
-			| (writable ? 1<<1 : 0)		// readonly
+			1								// "has flags"
+			| (!writable ? 1<<1 : 0)		// readonly
 		  ;
 		data.writeInt(flags);
 		for(int i=0; i<124; i++)  data.write(0);
