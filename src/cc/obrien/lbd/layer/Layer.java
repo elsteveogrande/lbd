@@ -191,7 +191,7 @@ public abstract class Layer
 
 		if(this.cacheEnabled)
 		{
-			byte value[] = Arrays.copyOfRange(contents, arrayOffset, 512);
+			byte value[] = Arrays.copyOfRange(contents, arrayOffset, arrayOffset + 512);
 			this.blockCache.add(block, value);
 			this.dirtyBlocks.remove(block);
 		}
