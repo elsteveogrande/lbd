@@ -25,8 +25,13 @@ public class Control
 	public static void main(String... args) throws Exception
 	{
 		Socket managerSocket = new Socket("localhost", Integer.parseInt(args[0]));
-		ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream());
+		managerSocket.setKeepAlive(true);
+		managerSocket.setTcpNoDelay(true);
+		
 		ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream());
+		out.flush();
+		
+		ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream());
 
 		Response hello = (Response) in.readObject();
 		assert(hello.serial == 0x1111222233334444L);
