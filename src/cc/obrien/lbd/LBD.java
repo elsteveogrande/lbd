@@ -161,31 +161,31 @@ public final class LBD
 				break;
 			
 			case 'e':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.EXPANDABLE_FILE, false, true, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.EXPANDABLE_FILE, false, true, getOpt.getOptarg()));
 				break;
 				
 			case 'E':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.EXPANDABLE_FILE, true, false,getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.EXPANDABLE_FILE, true, false,getOpt.getOptarg()));
 				break;
 				
 			case 'f':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.FLAT_FILE, false, false, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.FLAT_FILE, false, false, getOpt.getOptarg()));
 				break;
 				
 			case 'F':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.FLAT_FILE, true, false, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.FLAT_FILE, true, false, getOpt.getOptarg()));
 				break;
 				
 			case 'n':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.NBD, false, true, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.NBD, false, true, getOpt.getOptarg()));
 				break;
 				
 			case 'N':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.NBD, true, false, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.NBD, true, false, getOpt.getOptarg()));
 				break;
 				
 			case 'X':
-				layerArgs.add(0, new LayerArg(LayerArg.Type.NBD, true, true, getOpt.getOptarg()));
+				layerArgs.add(new LayerArg(LayerArg.Type.NBD, true, true, getOpt.getOptarg()));
 				break;
 				
 			case '?':
@@ -228,7 +228,7 @@ public final class LBD
 		for(LayerArg arg : layerArgs)
 		{
 			// top can be writable or read-only, either is ok
-			if(arg == layerArgs.getFirst())
+			if(arg == layerArgs.getLast())
 				continue;
 			
 			// but layers underneath should not be writable
