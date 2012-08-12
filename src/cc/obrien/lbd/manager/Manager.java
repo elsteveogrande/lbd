@@ -60,6 +60,8 @@ final public class Manager extends Thread
 			while(true)
 			{
 				Socket clientSocket = this.listenSocket.accept();
+				clientSocket.setKeepAlive(true);
+				clientSocket.setTcpNoDelay(true);
 				new Handler(clientSocket).start();
 			}
 		}
@@ -102,9 +104,10 @@ final public class Manager extends Thread
 			this.setDaemon(true);
 			this.clientSocket = clientSocket;
 			this.out = new ObjectOutputStream(clientSocket.getOutputStream());
-			this.out.writeObject(new Response(0x1111222233334444L, true, "hello"));
 			this.out.flush();
 			this.in = new ObjectInputStream(clientSocket.getInputStream());
+			this.out.writeObject(new Response(0x1111222233334444L, true, "hello"));
+			this.out.flush();
 		}
 		
 		
