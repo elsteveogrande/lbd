@@ -228,7 +228,7 @@ public final class LBD
 		for(LayerArg arg : layerArgs)
 		{
 			// top can be writable or read-only, either is ok
-			if(arg == layerArgs.getFirst())
+			if(arg == layerArgs.getLast())
 				continue;
 			
 			// but layers underneath should not be writable
