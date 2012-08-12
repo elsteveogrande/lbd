@@ -57,17 +57,6 @@ public class FIFOCache<K, V>
 	
 	
 	/**
-	 * debugging
-	 * @param c
-	 */
-	private static void boop(char c)
-	{
-		System.err.print(c);
-		System.err.flush();
-	}
-	
-	
-	/**
 	 * find the next victim and remove it
 	 */
 	synchronized private void evict()
@@ -90,7 +79,6 @@ public class FIFOCache<K, V>
 			}
 		}
 
-		boop('X');
 		this.contents.remove(victim);
 	}
 	
@@ -108,11 +96,6 @@ public class FIFOCache<K, V>
 				this.evict();
 			
 			this.queue.add(key);
-			boop('A');
-		}
-		else
-		{
-			boop('a');
 		}
 		
 		this.contents.put(key, value);
@@ -128,12 +111,7 @@ public class FIFOCache<K, V>
 		V ret = this.contents.get(key);
 		if(ret != null)
 		{
-			boop('h');
 			this.used.put(key, true);
-		}
-		else
-		{
-			boop('M');
 		}
 		
 		return ret;
